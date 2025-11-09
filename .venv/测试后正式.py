@@ -6,7 +6,7 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
-# --- 1. 全局配置与参数 ---
+# --- 1. 全局配置与参数 ----
 
 # --- 输入路径 ---
 # 您只需要修改下面这一行来更换视频文件！
