@@ -21,7 +21,7 @@ OUTPUT_CSV_PATH = os.path.join(OUTPUT_FOLDER, "detailed_trajectory_pixels.csv")
 OUTPUT_PLOT_PATH = os.path.join(OUTPUT_FOLDER, "trajectory_subplots.png")
 OUTPUT_VIDEO_PATH = os.path.join(OUTPUT_FOLDER, "tracked_video.mp4")
 
-# --- 其他功能开关 ---
+# --- 其他功能开关 ----
 SHOW_VIDEO_PREVIEW = True
 SAVE_OUTPUT_VIDEO = True
 
