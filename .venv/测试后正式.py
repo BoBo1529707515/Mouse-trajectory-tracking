@@ -6,7 +6,7 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
-# --- 1. 全局配置与参数 ----
+# --- 1. 全局配置与参数 ---
 
 # --- 输入路径 ---
 # 您只需要修改下面这一行来更换视频文件！
@@ -15,11 +15,9 @@ VIDEO_PATH = r"C:\Users\15297\Desktop\e116a1d3aa9a86211d99a0b826a5b2a9.mp4"
 # --- 自动生成输出文件夹和路径 ---
 base_filename = os.path.basename(VIDEO_PATH)
 video_name_without_ext, _ = os.path.splitext(base_filename)
-# 创建与视频同名的输出文件夹
 OUTPUT_FOLDER = video_name_without_ext
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
-# 所有输出文件都将保存在这个新文件夹中
 OUTPUT_CSV_PATH = os.path.join(OUTPUT_FOLDER, "detailed_trajectory.csv")
 OUTPUT_PLOT_PATH = os.path.join(OUTPUT_FOLDER, "trajectory_plot.png")
 OUTPUT_VIDEO_PATH = os.path.join(OUTPUT_FOLDER, "tracked_video.mp4")
@@ -35,62 +33,42 @@ kernel_open = np.ones((5, 5), np.uint8)
 kernel_dilate = np.ones((10, 10), np.uint8)
 MIN_AREA = 100
 
-# --- 全局变量 (用于多ROI选择) ---
-roi_boxes = []
-current_roi_points = [None, None]
-is_drawing = False
+# --- 全局变量 (用于不规则ROI选择) ---
+roi_polygons = []  # 存储所有已确定的多边形ROI
+current_polygon_points = []  # 存储当前正在绘制的多边形的点
 frame_for_selection = None
 display_frame = None
 
 
-def multi_roi_callback(event, x, y, flags, param):
-    """鼠标回调函数，用于选择多个ROI"""
-    global current_roi_points, is_drawing, display_frame
+def irregular_roi_callback(event, x, y, flags, param):
+    """鼠标回调函数，通过点击描点来定义不规则ROI"""
+    global current_polygon_points, display_frame
 
     if event == cv2.EVENT_LBUTTONDOWN:
-        current_roi_points = [(x, y), None]
-        is_drawing = True
-    elif event == cv2.EVENT_MOUSEMOVE and is_drawing:
-        # 实时显示正在绘制的框
-        temp_frame = display_frame.copy()
-        cv2.rectangle(temp_frame, current_roi_points[0], (x, y), (0, 255, 0), 2)
-        cv2.imshow("1. Select ROIs", temp_frame)
-    elif event == cv2.EVENT_LBUTTONUP:
-        is_drawing = False
-        current_roi_points[1] = (x, y)
-        x1 = min(current_roi_points[0][0], current_roi_points[1][0])
-        y1 = min(current_roi_points[0][1], current_roi_points[1][1])
-        x2 = max(current_roi_points[0][0], current_roi_points[1][0])
-        y2 = max(current_roi_points[0][1], current_roi_points[1][1])
-
-        # 添加新的ROI到列表中
-        roi_boxes.append((x1, y1, x2, y2))
-
-        # 在显示帧上永久画出这个已确定的ROI
-        cv2.rectangle(display_frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
-        cv2.putText(
-            display_frame,
-            f"ROI {len(roi_boxes)}",
-            (x1, y1 - 10),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
-            (255, 0, 0),
-            2,
-        )
-        cv2.imshow("1. Select ROIs", display_frame)
+        # 添加新点
+        current_polygon_points.append((x, y))
+        # 在显示帧上画出点和线
+        cv2.circle(display_frame, (x, y), 5, (0, 255, 0), -1)  # 画出当前点
+        if len(current_polygon_points) > 1:
+            # 连接到上一个点
+            cv2.line(
+                display_frame,
+                current_polygon_points[-2],
+                current_polygon_points[-1],
+                (0, 255, 255),
+                2,
+            )
+        cv2.imshow("1. Select Irregular ROIs", display_frame)
 
 
-# --- 2. 步骤一：加载视频并选择多个ROI ---
+# --- 2. 步骤一：加载视频并选择不规则ROI ---
 cap = cv2.VideoCapture(VIDEO_PATH)
 if not cap.isOpened():
     print(f"错误：无法打开视频文件 {VIDEO_PATH}")
     exit()
 
 fps = cap.get(cv2.CAP_PROP_FPS)
-if fps == 0:
-    fps = 30
-    print("警告: 无法获取帧率, 默认设置为30 FPS.")
-
+fps = 30 if fps == 0 else fps
 ret, first_frame = cap.read()
 if not ret:
     print("无法读取视频第一帧")
@@ -98,66 +76,105 @@ if not ret:
     exit()
 
 frame_for_selection = first_frame.copy()
-display_frame = first_frame.copy()  # 用于永久绘制已选ROI的帧
+display_frame = first_frame.copy()
 
-cv2.namedWindow("1. Select ROIs")
-cv2.setMouseCallback("1. Select ROIs", multi_roi_callback)
-print("--- ROI选择说明 ---")
-print("1. 在窗口中用鼠标拖拽来选择一个区域。")
-print("2. 您可以重复此操作以选择多个区域。")
-print("3. 选择完毕后，按键盘上的 'c' 或 'Enter' 键开始追踪。")
+cv2.namedWindow("1. Select Irregular ROIs")
+cv2.setMouseCallback("1. Select Irregular ROIs", irregular_roi_callback)
+
+print("--- 不规则ROI选择说明 ---")
+print("1. 在窗口中用鼠标左键点击，定义多边形的各个顶点。")
+print("2. 完成一个区域的绘制后，按 'n' 键保存该区域并开始下一个。")
+print("3. 如果画错，按 'r' 键清空所有选择，重新开始。")
+print("4. 所有区域选择完毕后，按 'c' 或 'Enter' 键开始追踪。")
 
 while True:
-    cv2.imshow("1. Select ROIs", display_frame)
+    cv2.imshow("1. Select Irregular ROIs", display_frame)
     key = cv2.waitKey(1) & 0xFF
-    # 按 'c' 或 Enter 键确认
-    if key == ord("c") or key == 13:
-        break
-    # 按 'r' 键重置选择
-    if key == ord("r"):
-        roi_boxes = []
+
+    # 按 'n' 键完成当前多边形，并准备画下一个
+    if key == ord("n"):
+        if len(current_polygon_points) > 2:  # 一个多边形至少需要3个点
+            roi_polygons.append(np.array(current_polygon_points, dtype=np.int32))
+            # 在显示帧上将这个多边形固化为蓝色
+            cv2.polylines(
+                display_frame,
+                [roi_polygons[-1]],
+                isClosed=True,
+                color=(255, 0, 0),
+                thickness=2,
+            )
+            # 添加标签
+            label_pos = tuple(np.mean(roi_polygons[-1], axis=0, dtype=np.int32))
+            cv2.putText(
+                display_frame,
+                f"ROI {len(roi_polygons)}",
+                (label_pos[0], label_pos[1]),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (255, 0, 0),
+                2,
+            )
+            current_polygon_points = []  # 清空，准备下一个
+            print(f"ROI {len(roi_polygons)} 已保存。请绘制下一个或按 'c' 确认。")
+        else:
+            print("绘制错误：一个区域至少需要3个点。")
+
+    # 按 'r' 键重置所有选择
+    elif key == ord("r"):
+        roi_polygons = []
+        current_polygon_points = []
         display_frame = frame_for_selection.copy()
-        print("ROI选择已重置，请重新选择。")
+        print("所有ROI选择已重置，请重新开始。")
+
+    # 按 'c' 或 Enter 键确认所有选择
+    elif key == ord("c") or key == 13:
+        # 如果用户在按c之前没有按n，自动保存最后一个正在绘制的多边形
+        if len(current_polygon_points) > 2:
+            roi_polygons.append(np.array(current_polygon_points, dtype=np.int32))
+        break
 
 cv2.destroyAllWindows()
-if not roi_boxes:
+if not roi_polygons:
     print("未选择任何ROI区域，程序退出。")
     cap.release()
     exit()
-print(f"已选择 {len(roi_boxes)} 个ROI区域，开始处理...")
+print(f"已选择 {len(roi_polygons)} 个不规则ROI区域，开始处理...")
 
-# --- 3. 步骤二：初始化追踪和输出 ---
+# --- 3. 初始化追踪与输出 ---
 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
 total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-raw_trajectory_data = []  # 格式: [frame, time_sec, roi_id, x, y]
+raw_trajectory_data = []  # [frame, time_sec, roi_id, x, y]
 video_writer = None
 
 if SAVE_OUTPUT_VIDEO:
-    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    h, w = frame_for_selection.shape[:2]
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    video_writer = cv2.VideoWriter(
-        OUTPUT_VIDEO_PATH, fourcc, fps, (frame_width, frame_height)
-    )
+    video_writer = cv2.VideoWriter(OUTPUT_VIDEO_PATH, fourcc, fps, (w, h))
 
-# --- 4. 步骤三：循环处理视频帧 (数据采集) ---
+# --- 4. 循环处理视频帧 (核心追踪逻辑) ---
 print(f"\n阶段 1/3: 正在从视频 '{base_filename}' (FPS: {fps:.2f}) 中采集坐标...")
 for frame_num in tqdm(range(total_frames), desc="追踪进度"):
     ret, frame = cap.read()
     if not ret:
         break
-
     time_sec = frame_num / fps
 
-    # 对每个ROI进行处理
-    for roi_id, roi_box in enumerate(roi_boxes):
-        x1, y1, x2, y2 = roi_box
-        roi_frame = frame[y1:y2, x1:x2]
+    # 对每个多边形ROI进行处理
+    for roi_id, polygon_points in enumerate(roi_polygons, 1):
+        # 1. 创建一个黑色的蒙版
+        mask = np.zeros(frame.shape[:2], dtype=np.uint8)
+        # 2. 在蒙版上将多边形区域填充为白色
+        cv2.fillPoly(mask, [polygon_points], 255)
+        # 3. 使用蒙版从原图中“抠出”ROI区域
+        roi_frame = cv2.bitwise_and(frame, frame, mask=mask)
 
+        # 在抠出的ROI上进行颜色识别和轮廓查找
         hsv_roi = cv2.cvtColor(roi_frame, cv2.COLOR_BGR2HSV)
-        mask = cv2.inRange(hsv_roi, lower_bound, upper_bound)
-        mask_processed = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel_open)
+        color_mask = cv2.inRange(hsv_roi, lower_bound, upper_bound)
+        # 形态学操作
+        mask_processed = cv2.morphologyEx(color_mask, cv2.MORPH_OPEN, kernel_open)
         mask_processed = cv2.dilate(mask_processed, kernel_dilate, iterations=1)
+
         contours, _ = cv2.findContours(
             mask_processed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
         )
@@ -168,19 +185,22 @@ for frame_num in tqdm(range(total_frames), desc="追踪进度"):
         if len(contours) > 0:
             largest_contour = max(contours, key=cv2.contourArea)
             if cv2.contourArea(largest_contour) > MIN_AREA:
-                ((x_rel, y_rel), radius) = cv2.minEnclosingCircle(largest_contour)
-                abs_x, abs_y = int(x_rel + x1), int(y_rel + y1)
+                # 注意：因为是在全尺寸蒙版上找轮廓，坐标已经是绝对坐标了！
+                ((abs_x, abs_y), radius) = cv2.minEnclosingCircle(largest_contour)
+                abs_x, abs_y = int(abs_x), int(abs_y)
                 found_object = True
 
-        raw_trajectory_data.append([frame_num + 1, time_sec, roi_id + 1, abs_x, abs_y])
+        raw_trajectory_data.append([frame_num + 1, time_sec, roi_id, abs_x, abs_y])
 
         # 在视频帧上绘制标记
         if SAVE_OUTPUT_VIDEO or SHOW_VIDEO_PREVIEW:
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
+            cv2.polylines(
+                frame, [polygon_points], isClosed=True, color=(255, 0, 0), thickness=2
+            )
             cv2.putText(
                 frame,
-                f"ROI {roi_id + 1}",
-                (x1, y1 - 10),
+                f"ROI {roi_id}",
+                tuple(polygon_points[0] - np.array([0, 10])),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.7,
                 (255, 0, 0),
@@ -207,7 +227,7 @@ for frame_num in tqdm(range(total_frames), desc="追踪进度"):
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
 
-# --- 5. 步骤四：数据后处理与分析 ---
+# --- 5. 数据后处理与分析 (与之前版本基本相同) ---
 print("\n阶段 2/3: 正在分析轨迹数据...")
 detailed_data = []
 header = [
@@ -221,9 +241,8 @@ header = [
 ]
 detailed_data.append(header)
 
-# 按ROI分组计算累计距离
-total_distances = {roi_id + 1: 0.0 for roi_id in range(len(roi_boxes))}
-last_coords = {roi_id + 1: (np.nan, np.nan) for roi_id in range(len(roi_boxes))}
+total_distances = {roi_id + 1: 0.0 for roi_id in range(len(roi_polygons))}
+last_coords = {roi_id + 1: (np.nan, np.nan) for roi_id in range(len(roi_polygons))}
 
 for frame, time_sec, roi_id, x, y in tqdm(raw_trajectory_data, desc="分析进度"):
     distance_this_frame = 0.0
@@ -238,46 +257,39 @@ for frame, time_sec, roi_id, x, y in tqdm(raw_trajectory_data, desc="分析进�
     )
     last_coords[roi_id] = (x, y)
 
-# --- 6. 步骤五：生成输出文件 ---
+# --- 6. 生成输出文件 ---
 print("\n阶段 3/3: 正在生成报告和图像...")
 
-# 6.1 保存详细的CSV文件
+# 6.1 保存详细CSV
 with open(OUTPUT_CSV_PATH, "w", newline="") as f:
     writer = csv.writer(f)
     writer.writerows(detailed_data)
 print(f"  - 详细轨迹数据已保存到: {OUTPUT_CSV_PATH}")
 
-# 6.2 生成并保存轨迹图 (包含所有ROI)
+# 6.2 生成并保存轨迹图 (现在绘制多边形ROI)
 plt.figure(figsize=(10, 10))
 ax = plt.gca()
-colors = plt.cm.get_cmap("tab10", len(roi_boxes))  # 为每个ROI生成不同颜色
+colors = plt.cm.get_cmap("tab10", len(roi_polygons))
 
-for roi_id_to_plot in range(1, len(roi_boxes) + 1):
-    roi_data = [row for row in detailed_data[1:] if row[2] == roi_id_to_plot]
+for roi_id, polygon_points in enumerate(roi_polygons, 1):
+    roi_data = [row for row in detailed_data[1:] if row[2] == roi_id]
     x_coords = [row[3] for row in roi_data]
     y_coords = [row[4] for row in roi_data]
 
-    # 绘制轨迹
     ax.plot(
-        x_coords,
-        y_coords,
-        color=colors(roi_id_to_plot - 1),
-        label=f"ROI {roi_id_to_plot}",
-        alpha=0.8,
+        x_coords, y_coords, color=colors(roi_id - 1), label=f"ROI {roi_id}", alpha=0.8
     )
 
-    # 绘制ROI框
-    x1, y1, x2, y2 = roi_boxes[roi_id_to_plot - 1]
-    rect = patches.Rectangle(
-        (x1, y1),
-        x2 - x1,
-        y2 - y1,
+    # 绘制多边形ROI边界
+    poly_patch = patches.Polygon(
+        polygon_points,
+        closed=True,
         linewidth=1.5,
-        edgecolor=colors(roi_id_to_plot - 1),
+        edgecolor=colors(roi_id - 1),
         facecolor="none",
         linestyle="--",
     )
-    ax.add_patch(rect)
+    ax.add_patch(poly_patch)
 
 ax.set_title(f"Mouse Trajectories: {base_filename}")
 ax.set_xlabel("X-Position (pixels)")
@@ -290,15 +302,14 @@ plt.savefig(OUTPUT_PLOT_PATH, dpi=300)
 plt.close()
 print(f"  - 组合轨迹图已保存到: {OUTPUT_PLOT_PATH}")
 
-# 6.3 为每个ROI生成秒级总结报告
-for roi_id_to_summarize in range(1, len(roi_boxes) + 1):
+# 6.3 为每个ROI生成秒级总结报告 (与之前版本相同)
+# ... (这部分代码无需修改，直接复用)
+for roi_id_to_summarize in range(1, len(roi_polygons) + 1):
     roi_data = [row for row in detailed_data[1:] if row[2] == roi_id_to_summarize]
     summary_report = [["Time_End (s)", "Cumulative_Distance_at_Second_End (pixels)"]]
     target_second = 1
-
     if not roi_data:
         continue
-
     last_dist = 0
     for row in roi_data:
         time_sec, cum_dist = row[1], row[5]
@@ -306,18 +317,15 @@ for roi_id_to_summarize in range(1, len(roi_boxes) + 1):
             summary_report.append([target_second, cum_dist])
             target_second += 1
         last_dist = cum_dist
-
-    # 确保最后的时间点也被记录
     if not summary_report or summary_report[-1][0] < int(roi_data[-1][1]):
         summary_report.append([int(roi_data[-1][1]), last_dist])
-
     summary_filename = os.path.join(
         OUTPUT_FOLDER, f"summary_roi_{roi_id_to_summarize}.csv"
     )
     with open(summary_filename, "w", newline="") as f:
-        writer = csv.writer(f)
         writer.writerows(summary_report)
     print(f"  - ROI {roi_id_to_summarize} 的秒级总结已保存到: {summary_filename}")
+
 
 # --- 7. 释放资源 ---
 cap.release()
