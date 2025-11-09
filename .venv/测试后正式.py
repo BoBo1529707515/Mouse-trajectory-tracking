@@ -1,27 +1,35 @@
 import cv2
 import numpy as np
 import csv
-from tqdm import tqdm  # 引入tqdm库用于显示进度条
+from tqdm import tqdm
+import os  # 导入os模块来处理文件路径
 
 # --- 1. 全局配置与参数 ---
 
 # --- 输入/输出路径 ---
+# 您只需要修改下面这一行来更换视频文件！
 VIDEO_PATH = r"C:\Users\15297\Desktop\e116a1d3aa9a86211d99a0b826a5b2a9.mp4"
-OUTPUT_CSV_PATH = "trajectory_data.csv"  # 输出轨迹数据的文件名
-OUTPUT_VIDEO_PATH = "tracked_video.mp4"  # 输出带标记的视频文件名
+
+# --- 自动生成输出文件名 (新功能) ---
+# 1. 获取视频文件的基本名称 (例如: 'video.mp4')
+base_filename = os.path.basename(VIDEO_PATH)
+# 2. 将基本名称和扩展名分开 (例如: 'video' 和 '.mp4')
+video_name_without_ext, _ = os.path.splitext(base_filename)
+# 3. 使用视频主名构建新的输出文件名
+OUTPUT_CSV_PATH = f"{video_name_without_ext}_trajectory.csv"
+OUTPUT_VIDEO_PATH = f"{video_name_without_ext}_tracked.mp4"
+# ------------------------------------qqq
 
 # --- 功能开关 ---
+# 关闭预览可以极大提速！
 SHOW_VIDEO_PREVIEW = False  # 是否显示实时追踪窗口？ (True/False)
 SAVE_OUTPUT_VIDEO = True  # 是否保存带标记的视频文件？ (True/False)
 
 # --- 追踪参数 ---
-# 您找到的最佳HSV阈值
 lower_bound = np.array([0, 0, 0])
 upper_bound = np.array([50, 255, 117])
-# 形态学操作内核
 kernel_open = np.ones((5, 5), np.uint8)
 kernel_dilate = np.ones((10, 10), np.uint8)
-# 最小轮廓面积，小于此值将被忽略（避免噪声）
 MIN_AREA = 100
 
 # --- 全局变量 (用于ROI选择) ---
@@ -82,26 +90,23 @@ if roi_box is None:
     exit()
 
 # --- 3. 步骤二：初始化追踪和输出 ---
-# 将视频重新定位到开头
 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
 total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-trajectory_data = []  # 用于存储所有轨迹数据
+trajectory_data = []
 video_writer = None
 
-# 如果需要保存视频，则初始化VideoWriter
 if SAVE_OUTPUT_VIDEO:
     frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS)
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # 或者 'XVID'
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     video_writer = cv2.VideoWriter(
         OUTPUT_VIDEO_PATH, fourcc, fps, (frame_width, frame_height)
     )
     print(f"将保存带标记的视频到: {OUTPUT_VIDEO_PATH}")
 
 # --- 4. 步骤三：循环处理视频帧并生成数据 ---
-print("\n开始处理视频帧...")
-# 使用tqdm创建进度条
+print(f"\n开始处理视频: {base_filename}")
 for frame_num in tqdm(range(total_frames), desc="追踪进度"):
     ret, frame = cap.read()
     if not ret:
@@ -110,7 +115,6 @@ for frame_num in tqdm(range(total_frames), desc="追踪进度"):
     x1, y1, x2, y2 = roi_box
     roi_frame = frame[y1:y2, x1:x2]
 
-    # 核心处理
     hsv_roi = cv2.cvtColor(roi_frame, cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(hsv_roi, lower_bound, upper_bound)
     mask_processed = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel_open)
@@ -125,18 +129,14 @@ for frame_num in tqdm(range(total_frames), desc="追踪进度"):
         if cv2.contourArea(largest_contour) > MIN_AREA:
             ((x_rel, y_rel), radius) = cv2.minEnclosingCircle(largest_contour)
             abs_x, abs_y = int(x_rel + x1), int(y_rel + y1)
-
-            # 记录有效数据
             trajectory_data.append([frame_num + 1, abs_x, abs_y])
             found_object = True
 
-    # 如果当前帧没有找到目标，记录为NaN (Not a Number)
     if not found_object:
         trajectory_data.append([frame_num + 1, np.nan, np.nan])
 
-    # --- 可选的绘制和显示 ---
     if SHOW_VIDEO_PREVIEW or SAVE_OUTPUT_VIDEO:
-        cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)  # ROI框
+        cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
         if found_object:
             cv2.circle(frame, (abs_x, abs_y), int(radius), (0, 255, 0), 2)
             cv2.circle(frame, (abs_x, abs_y), 5, (0, 0, 255), -1)
@@ -160,16 +160,13 @@ for frame_num in tqdm(range(total_frames), desc="追踪进度"):
 
 # --- 5. 步骤四：保存数据并释放资源 ---
 print("\n处理完成！正在保存数据...")
-
-# 保存轨迹数据到CSV文件
 with open(OUTPUT_CSV_PATH, "w", newline="") as f:
     writer = csv.writer(f)
-    writer.writerow(["frame", "x", "y"])  # 写入表头
+    writer.writerow(["frame", "x", "y"])
     writer.writerows(trajectory_data)
 
 print(f"轨迹数据已成功保存到: {OUTPUT_CSV_PATH}")
 
-# 释放资源
 cap.release()
 if video_writer:
     video_writer.release()
