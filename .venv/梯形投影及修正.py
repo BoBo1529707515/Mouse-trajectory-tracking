@@ -6,9 +6,9 @@ import os
 import matplotlib.pyplot as plt
 
 # --- 1. 全局配置与参数 ---
-VIDEO_PATH = r"C:\Users\15297\Desktop\e116a1d3aa9a86211d99a0b826a5b2a9.mp4"
+VIDEO_PATH = r"C:\Users\15297\Desktop\b1d914e513f5dc3f0fafd2824ea55ac3.mp4"
 ENABLE_PERSPECTIVE_CORRECTION = True
-REAL_WIDTH_CM = 50.0
+REAL_WIDTH_CM = 40.0
 REAL_HEIGHT_CM = 40.0
 
 # --- 追踪参数 (请使用调试器获得最佳值) ---
@@ -27,9 +27,18 @@ OUTPUT_VIDEO_PATH = os.path.join(OUTPUT_FOLDER, "tracked_video.mp4")
 
 # --- 其他功能开关 ---
 SHOW_VIDEO_PREVIEW = True
+SAVE_OUTPUT_VIDEO = True  # ### FIX 3: 添加了缺失的变量定义
+
+# --- 全局变量 (在回调函数中使用) ---
+perspective_points = []
+current_polygon_points = []
+roi_polygons = []
+display_frame = None
+
+
 # --- 回调函数 (无需修改) ---
 def perspective_callback(event, x, y, flags, param):
-    global display_frame
+    global display_frame, perspective_points
     if event == cv2.EVENT_LBUTTONDOWN and len(perspective_points) < 4:
         perspective_points.append([x, y])
         cv2.circle(display_frame, (x, y), 7, (0, 0, 255), -1)
@@ -61,7 +70,7 @@ def irregular_roi_callback(event, x, y, flags, param):
         cv2.imshow("1. Select Irregular ROIs", display_frame)
 
 
-# --- 2 & 3. 视频加载与ROI选择 (无需修改) ---
+# --- 2 & 3. 视频加载与ROI选择 ---
 cap = cv2.VideoCapture(VIDEO_PATH)
 if not cap.isOpened():
     print(f"错误：无法打开视频文件 {VIDEO_PATH}")
@@ -73,8 +82,10 @@ if not ret:
     print("无法读取视频第一帧")
     cap.release()
     exit()
+
 if ENABLE_PERSPECTIVE_CORRECTION:
     display_frame = first_frame.copy()
+    perspective_points = []  # ### FIX 1: 在使用前初始化列表
     cv2.namedWindow("0. Calibrate Perspective")
     cv2.setMouseCallback("0. Calibrate Perspective", perspective_callback)
     print("--- 步骤 0: 透视校准 ---")
@@ -104,8 +115,12 @@ if ENABLE_PERSPECTIVE_CORRECTION:
     else:
         print("未完成四点选择，将禁用透视校正。")
         ENABLE_PERSPECTIVE_CORRECTION = False
+        perspective_transform_matrix = None
+
 frame_for_selection = first_frame.copy()
 display_frame = first_frame.copy()
+roi_polygons = []  # ### FIX 2: 在使用前初始化列表
+current_polygon_points = []  # ### FIX 2: 在使用前初始化列表
 cv2.namedWindow("1. Select Irregular ROIs")
 cv2.setMouseCallback("1. Select Irregular ROIs", irregular_roi_callback)
 print("\n--- 步骤 1: ROI选择说明 ---")
@@ -153,7 +168,7 @@ if not roi_polygons:
     exit()
 print(f"已选择 {len(roi_polygons)} 个不规则ROI区域，开始处理...")
 
-# --- 4. 初始化和主循环 (核心逻辑修正) ---
+# --- 4. 初始化和主循环 ---
 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
 total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 raw_trajectory_data = []
@@ -171,23 +186,19 @@ for frame_num in tqdm(range(total_frames), desc="追踪进度"):
         break
     time_sec = frame_num / fps
 
-    # *** 致命逻辑修正 START ***
-    # 1. 先对整个帧进行颜色转换，避免后续引入人造黑边
+    # 先对整个帧进行颜色转换和过滤
     full_hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    # 2. 在整个帧上应用颜色过滤器，得到一个全局的颜色蒙版
     full_color_mask = cv2.inRange(full_hsv_frame, lower_bound, upper_bound)
-    # *** 致命逻辑修正 END ***
 
     for roi_id, polygon_points in enumerate(roi_polygons, 1):
-        # 3. 创建一个只属于当前ROI的蒙版
+        # 创建当前ROI的蒙版
         roi_mask = np.zeros(frame.shape[:2], dtype=np.uint8)
         cv2.fillPoly(roi_mask, [polygon_points], 255)
 
-        # 4. 将全局颜色蒙版与当前ROI蒙版进行“与”操作
-        # 得到一个只在当前ROI内，且颜色符合目标的最终蒙版
+        # 得到只在当前ROI内且颜色符合的最终蒙版
         final_mask = cv2.bitwise_and(full_color_mask, full_color_mask, mask=roi_mask)
 
-        # 5. 在这个干净、无干扰的最终蒙版上进行后续操作
+        # 在最终蒙版上进行后续操作
         mask_processed = cv2.morphologyEx(final_mask, cv2.MORPH_OPEN, kernel_open)
         mask_processed = cv2.dilate(mask_processed, kernel_dilate, iterations=1)
         contours, _ = cv2.findContours(
@@ -247,7 +258,7 @@ for frame_num in tqdm(range(total_frames), desc="追踪进度"):
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
 
-# --- 5, 6, 7. 数据处理、输出与释放 (无需修改) ---
+# --- 5, 6, 7. 数据处理、输出与释放 ---
 print("\n阶段 2/3: 正在分析轨迹数据...")
 detailed_data = []
 unit = "cm" if ENABLE_PERSPECTIVE_CORRECTION else "pixels"
@@ -294,43 +305,29 @@ for frame, time_sec, roi_id, x_pixel, y_pixel, x_corr, y_corr in tqdm(
             (current_x - prev_x) ** 2 + (current_y - prev_y) ** 2
         )
         total_distances[roi_id] += distance_this_frame
+
+    row_data = [frame, time_sec, roi_id, x_pixel, y_pixel]
     if ENABLE_PERSPECTIVE_CORRECTION:
-        detailed_data.append(
-            [
-                frame,
-                time_sec,
-                roi_id,
-                x_pixel,
-                y_pixel,
-                x_corr,
-                y_corr,
-                distance_this_frame,
-                total_distances[roi_id],
-            ]
-        )
-    else:
-        detailed_data.append(
-            [
-                frame,
-                time_sec,
-                roi_id,
-                x_pixel,
-                y_pixel,
-                distance_this_frame,
-                total_distances[roi_id],
-            ]
-        )
+        row_data.extend([x_corr, y_corr])
+    row_data.extend([distance_this_frame, total_distances[roi_id]])
+    detailed_data.append(row_data)
+
     last_coords[roi_id] = (current_x, current_y)
+
 print("\n阶段 3/3: 正在生成报告和图像...")
 with open(OUTPUT_CSV_PATH, "w", newline="") as f:
     writer = csv.writer(f)
     writer.writerows(detailed_data)
 print(f"  - 详细轨迹数据已保存到: {OUTPUT_CSV_PATH}")
+
 plt.figure(figsize=(10, 10))
 ax = plt.gca()
 cmap = plt.get_cmap("tab10")
 for roi_id in range(1, len(roi_polygons) + 1):
     roi_data = [row for row in detailed_data[1:] if row[2] == roi_id]
+    if not roi_data:
+        continue
+
     if ENABLE_PERSPECTIVE_CORRECTION:
         x_coords, y_coords = [r[5] for r in roi_data], [r[6] for r in roi_data]
     else:
@@ -338,6 +335,7 @@ for roi_id in range(1, len(roi_polygons) + 1):
     ax.plot(
         x_coords, y_coords, color=cmap(roi_id - 1), label=f"ROI {roi_id}", alpha=0.8
     )
+
 if ENABLE_PERSPECTIVE_CORRECTION:
     ax.set_title(f"Corrected Trajectories: {base_filename}")
     ax.set_xlabel(f"X-Position ({unit})")
@@ -346,36 +344,46 @@ if ENABLE_PERSPECTIVE_CORRECTION:
     ax.set_ylim(0, REAL_HEIGHT_CM)
     ax.set_aspect("equal", adjustable="box")
 else:
+    h, w = first_frame.shape[:2]
     ax.set_title(f"Pixel Trajectories: {base_filename}")
     ax.set_xlabel(f"X-Position ({unit})")
     ax.set_ylabel(f"Y-Position ({unit})")
+    ax.set_xlim(0, w)
+    ax.set_ylim(0, h)
     ax.invert_yaxis()
     ax.set_aspect("equal", adjustable="box")
+
 ax.grid(True, linestyle="--", alpha=0.5)
 ax.legend()
 plt.savefig(OUTPUT_PLOT_PATH, dpi=300)
 plt.close()
 print(f"  - 轨迹图已保存到: {OUTPUT_PLOT_PATH}")
+
 for roi_id_to_summarize in range(1, len(roi_polygons) + 1):
     roi_data = [row for row in detailed_data[1:] if row[2] == roi_id_to_summarize]
+    if not roi_data:
+        continue
+
     summary_report = [[f"Time_End (s)", f"Cumulative_Distance_at_Second_End ({unit})"]]
     target_second = 1
     last_dist = 0
-    if not roi_data:
-        continue
     dist_col_index = -1
     for row in roi_data:
         time_sec, cum_dist = row[1], row[dist_col_index]
         if time_sec >= target_second:
+            # 填充可能跳过的秒数
+            while target_second < time_sec:
+                summary_report.append([target_second, last_dist])
+                target_second += 1
             summary_report.append([target_second, cum_dist])
             target_second += 1
         last_dist = cum_dist
-    if not summary_report or (
-        roi_data
-        and roi_data[-1][1] > 0
-        and summary_report[-1][0] < int(roi_data[-1][1])
-    ):
-        summary_report.append([int(roi_data[-1][1]), last_dist])
+
+    # 确保最后的时间点被记录
+    final_time = int(roi_data[-1][1])
+    if final_time >= target_second:
+        summary_report.append([final_time, last_dist])
+
     summary_filename = os.path.join(
         OUTPUT_FOLDER, f"summary_roi_{roi_id_to_summarize}.csv"
     )
@@ -383,7 +391,9 @@ for roi_id_to_summarize in range(1, len(roi_polygons) + 1):
         summary_writer = csv.writer(f)
         summary_writer.writerows(summary_report)
     print(f"  - ROI {roi_id_to_summarize} 的秒级总结已保存到: {summary_filename}")
+
 cap.release()
 if video_writer:
     video_writer.release()
+cv2.destroyAllWindows()
 print(f"\n所有处理完成！请查看文件夹 '{OUTPUT_FOLDER}' 获取结果。")
