@@ -7,13 +7,14 @@ import matplotlib.pyplot as plt
 
 # --- 1. 全局配置与参数 ---
 VIDEO_PATH = r"C:\Users\15297\Desktop\b1d914e513f5dc3f0fafd2824ea55ac3.mp4"
+
 ENABLE_PERSPECTIVE_CORRECTION = True
 REAL_WIDTH_CM = 40.0
 REAL_HEIGHT_CM = 40.0
 
 # --- 追踪参数 (请使用调试器获得最佳值) ---
 lower_bound = np.array([0, 0, 0])
-upper_bound = np.array([179, 255, 60])  # 示例值，追踪黑色物体时V_max较低
+upper_bound = np.array([179, 255, 60])
 MIN_AREA = 100
 
 # --- 自动生成输出文件夹和路径 ---
@@ -27,7 +28,7 @@ OUTPUT_VIDEO_PATH = os.path.join(OUTPUT_FOLDER, "tracked_video.mp4")
 
 # --- 其他功能开关 ---
 SHOW_VIDEO_PREVIEW = True
-SAVE_OUTPUT_VIDEO = True  # ### FIX 3: 添加了缺失的变量定义
+SAVE_OUTPUT_VIDEO = True
 
 # --- 全局变量 (在回调函数中使用) ---
 perspective_points = []
@@ -70,22 +71,84 @@ def irregular_roi_callback(event, x, y, flags, param):
         cv2.imshow("1. Select Irregular ROIs", display_frame)
 
 
-# --- 2 & 3. 视频加载与ROI选择 ---
+# --- 2. 视频加载与交互式设置 ---
 cap = cv2.VideoCapture(VIDEO_PATH)
 if not cap.isOpened():
     print(f"错误：无法打开视频文件 {VIDEO_PATH}")
     exit()
+
 fps = cap.get(cv2.CAP_PROP_FPS)
 fps = 30 if fps == 0 else fps
-ret, first_frame = cap.read()
+total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+
+# --- 步骤 -1: 交互式选择开始帧 (优化滑动条精度) ---
+def on_trackbar(val):
+    pass
+
+
+# 设定一个更宽的窗口来拉长滑动条，以实现精细调整
+SELECTOR_WINDOW_WIDTH = 1200  # 你可以根据你的屏幕分辨率调整这个宽度
+
+# 获取视频原始尺寸以计算高宽比
+original_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+original_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+aspect_ratio = original_height / original_width
+selector_window_height = int(SELECTOR_WINDOW_WIDTH * aspect_ratio)
+
+frame_selector_window = "Select Start Frame"
+# 使用 cv2.WINDOW_NORMAL 使窗口可调整大小
+cv2.namedWindow(frame_selector_window, cv2.WINDOW_NORMAL)
+# 手动设置窗口大小
+cv2.resizeWindow(frame_selector_window, SELECTOR_WINDOW_WIDTH, selector_window_height)
+
+cv2.createTrackbar("Frame", frame_selector_window, 0, total_frames - 1, on_trackbar)
+
+print("--- 步骤 -1: 选择开始帧 ---")
+print("1. 拖动下方的滑动条来选择视频的开始帧。")
+print("2. 选定后，按 'c' 或 'Enter' 键确认。")
+
+current_frame_pos = -1
+START_FRAME = 0  # 默认从第0帧开始
+while True:
+    trackbar_pos = cv2.getTrackbarPos("Frame", frame_selector_window)
+    if trackbar_pos != current_frame_pos:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, trackbar_pos)
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        info_text = f"Frame: {trackbar_pos} / {total_frames - 1}"
+        cv2.putText(
+            frame, info_text, (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2
+        )
+        cv2.imshow(frame_selector_window, frame)
+        current_frame_pos = trackbar_pos
+
+    key = cv2.waitKey(20) & 0xFF
+    if key in [ord("c"), 13]:
+        START_FRAME = current_frame_pos
+        break
+    if cv2.getWindowProperty(frame_selector_window, cv2.WND_PROP_VISIBLE) < 1:
+        print("帧选择窗口已关闭，使用当前位置作为开始帧。")
+        START_FRAME = current_frame_pos
+        break
+
+cv2.destroyAllWindows()
+
+print(f"\n已选择第 {START_FRAME} 帧作为起点。")
+
+cap.set(cv2.CAP_PROP_POS_FRAMES, START_FRAME)
+ret, setup_frame = cap.read()
 if not ret:
-    print("无法读取视频第一帧")
+    print(f"无法读取指定的开始帧 ({START_FRAME})")
     cap.release()
     exit()
 
+# --- 3. 透视校准与ROI选择 ---
 if ENABLE_PERSPECTIVE_CORRECTION:
-    display_frame = first_frame.copy()
-    perspective_points = []  # ### FIX 1: 在使用前初始化列表
+    display_frame = setup_frame.copy()
+    perspective_points = []
     cv2.namedWindow("0. Calibrate Perspective")
     cv2.setMouseCallback("0. Calibrate Perspective", perspective_callback)
     print("--- 步骤 0: 透视校准 ---")
@@ -117,10 +180,10 @@ if ENABLE_PERSPECTIVE_CORRECTION:
         ENABLE_PERSPECTIVE_CORRECTION = False
         perspective_transform_matrix = None
 
-frame_for_selection = first_frame.copy()
-display_frame = first_frame.copy()
-roi_polygons = []  # ### FIX 2: 在使用前初始化列表
-current_polygon_points = []  # ### FIX 2: 在使用前初始化列表
+frame_for_selection = setup_frame.copy()
+display_frame = setup_frame.copy()
+roi_polygons = []
+current_polygon_points = []
 cv2.namedWindow("1. Select Irregular ROIs")
 cv2.setMouseCallback("1. Select Irregular ROIs", irregular_roi_callback)
 print("\n--- 步骤 1: ROI选择说明 ---")
@@ -169,36 +232,31 @@ if not roi_polygons:
 print(f"已选择 {len(roi_polygons)} 个不规则ROI区域，开始处理...")
 
 # --- 4. 初始化和主循环 ---
-cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+cap.set(cv2.CAP_PROP_POS_FRAMES, START_FRAME)
 raw_trajectory_data = []
 video_writer = None
 if SAVE_OUTPUT_VIDEO:
-    h, w = first_frame.shape[:2]
+    h, w = setup_frame.shape[:2]
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     video_writer = cv2.VideoWriter(OUTPUT_VIDEO_PATH, fourcc, fps, (w, h))
+
 kernel_open = np.ones((5, 5), np.uint8)
 kernel_dilate = np.ones((10, 10), np.uint8)
 print(f"\n阶段 1/3: 正在从视频 '{base_filename}' 中采集和校正坐标...")
-for frame_num in tqdm(range(total_frames), desc="追踪进度"):
+
+for frame_num in tqdm(range(START_FRAME, total_frames), desc="追踪进度"):
     ret, frame = cap.read()
     if not ret:
         break
-    time_sec = frame_num / fps
+    time_sec = (frame_num - START_FRAME) / fps  # 时间应从0开始
 
-    # 先对整个帧进行颜色转换和过滤
     full_hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     full_color_mask = cv2.inRange(full_hsv_frame, lower_bound, upper_bound)
 
     for roi_id, polygon_points in enumerate(roi_polygons, 1):
-        # 创建当前ROI的蒙版
         roi_mask = np.zeros(frame.shape[:2], dtype=np.uint8)
         cv2.fillPoly(roi_mask, [polygon_points], 255)
-
-        # 得到只在当前ROI内且颜色符合的最终蒙版
         final_mask = cv2.bitwise_and(full_color_mask, full_color_mask, mask=roi_mask)
-
-        # 在最终蒙版上进行后续操作
         mask_processed = cv2.morphologyEx(final_mask, cv2.MORPH_OPEN, kernel_open)
         mask_processed = cv2.dilate(mask_processed, kernel_dilate, iterations=1)
         contours, _ = cv2.findContours(
@@ -231,7 +289,7 @@ for frame_num in tqdm(range(total_frames), desc="追踪进度"):
                     y_corr = corrected_point[0][0][1] / 10.0
 
         raw_trajectory_data.append(
-            [frame_num + 1, time_sec, roi_id, abs_x, abs_y, x_corr, y_corr]
+            [frame_num, time_sec, roi_id, abs_x, abs_y, x_corr, y_corr]
         )
 
         if SAVE_OUTPUT_VIDEO or SHOW_VIDEO_PREVIEW:
@@ -244,7 +302,7 @@ for frame_num in tqdm(range(total_frames), desc="追踪进度"):
     if SAVE_OUTPUT_VIDEO or SHOW_VIDEO_PREVIEW:
         cv2.putText(
             frame,
-            f"T: {time_sec:.2f}s",
+            f"F:{frame_num} T:{time_sec:.2f}s",
             (20, 40),
             cv2.FONT_HERSHEY_SIMPLEX,
             1,
@@ -305,13 +363,11 @@ for frame, time_sec, roi_id, x_pixel, y_pixel, x_corr, y_corr in tqdm(
             (current_x - prev_x) ** 2 + (current_y - prev_y) ** 2
         )
         total_distances[roi_id] += distance_this_frame
-
     row_data = [frame, time_sec, roi_id, x_pixel, y_pixel]
     if ENABLE_PERSPECTIVE_CORRECTION:
         row_data.extend([x_corr, y_corr])
     row_data.extend([distance_this_frame, total_distances[roi_id]])
     detailed_data.append(row_data)
-
     last_coords[roi_id] = (current_x, current_y)
 
 print("\n阶段 3/3: 正在生成报告和图像...")
@@ -327,7 +383,6 @@ for roi_id in range(1, len(roi_polygons) + 1):
     roi_data = [row for row in detailed_data[1:] if row[2] == roi_id]
     if not roi_data:
         continue
-
     if ENABLE_PERSPECTIVE_CORRECTION:
         x_coords, y_coords = [r[5] for r in roi_data], [r[6] for r in roi_data]
     else:
@@ -344,7 +399,7 @@ if ENABLE_PERSPECTIVE_CORRECTION:
     ax.set_ylim(0, REAL_HEIGHT_CM)
     ax.set_aspect("equal", adjustable="box")
 else:
-    h, w = first_frame.shape[:2]
+    h, w = setup_frame.shape[:2]
     ax.set_title(f"Pixel Trajectories: {base_filename}")
     ax.set_xlabel(f"X-Position ({unit})")
     ax.set_ylabel(f"Y-Position ({unit})")
@@ -363,7 +418,6 @@ for roi_id_to_summarize in range(1, len(roi_polygons) + 1):
     roi_data = [row for row in detailed_data[1:] if row[2] == roi_id_to_summarize]
     if not roi_data:
         continue
-
     summary_report = [[f"Time_End (s)", f"Cumulative_Distance_at_Second_End ({unit})"]]
     target_second = 1
     last_dist = 0
@@ -371,7 +425,6 @@ for roi_id_to_summarize in range(1, len(roi_polygons) + 1):
     for row in roi_data:
         time_sec, cum_dist = row[1], row[dist_col_index]
         if time_sec >= target_second:
-            # 填充可能跳过的秒数
             while target_second < time_sec:
                 summary_report.append([target_second, last_dist])
                 target_second += 1
@@ -379,10 +432,10 @@ for roi_id_to_summarize in range(1, len(roi_polygons) + 1):
             target_second += 1
         last_dist = cum_dist
 
-    # 确保最后的时间点被记录
-    final_time = int(roi_data[-1][1])
-    if final_time >= target_second:
-        summary_report.append([final_time, last_dist])
+    if roi_data:  # Make sure there is data
+        final_time = int(roi_data[-1][1])
+        if final_time >= target_second:
+            summary_report.append([final_time, last_dist])
 
     summary_filename = os.path.join(
         OUTPUT_FOLDER, f"summary_roi_{roi_id_to_summarize}.csv"
