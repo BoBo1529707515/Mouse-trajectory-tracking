@@ -7,9 +7,9 @@ import matplotlib.pyplot as plt
 import math
 
 # --- 1. 全局配置与参数 ---
-VIDEO_PATH = r'C:\Users\15297\Desktop\b1d914e513f5dc3f0fafd2824ea55ac3.mp4'
+VIDEO_PATH = r'C:\Users\15297\Desktop\e116a1d3aa9a86211d99a0b826a5b2a9.mp4'
 lower_bound = np.array([0, 0, 0])
-upper_bound = np.array([179, 153, 193])
+upper_bound = np.array([179, 255, 60])
 MIN_AREA = 100
 
 # --- 自动生成输出文件夹和路径 ---

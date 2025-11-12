@@ -8,16 +8,13 @@ import matplotlib.pyplot as plt
 # --- 1. 全局配置与参数 ---
 VIDEO_PATH = r"C:\Users\15297\Desktop\b1d914e513f5dc3f0fafd2824ea55ac3.mp4"
 
-# ### NEW ###: 分析范围设置
-START_FRAME = 0  # 设置开始分析的帧数，0代表从头开始
-
 ENABLE_PERSPECTIVE_CORRECTION = True
 REAL_WIDTH_CM = 40.0
 REAL_HEIGHT_CM = 40.0
 
 # --- 追踪参数 (请使用调试器获得最佳值) ---
 lower_bound = np.array([0, 0, 0])
-upper_bound = np.array([179, 255, 60])  # 示例值，追踪黑色物体时V_max较低
+upper_bound = np.array([179, 255, 60])
 MIN_AREA = 100
 
 # --- 自动生成输出文件夹和路径 ---
@@ -33,15 +30,18 @@ OUTPUT_VIDEO_PATH = os.path.join(OUTPUT_FOLDER, "tracked_video.mp4")
 SHOW_VIDEO_PREVIEW = True
 SAVE_OUTPUT_VIDEO = True
 
-# --- 全局变量 (在回调函数中使用) ---
+# --- 全局变量 ---
 perspective_points = []
 current_polygon_points = []
 roi_polygons = []
 display_frame = None
+start_frame_confirmed = False  # ### NEW ###: 用于按钮确认的全局标志
+button_rect = None  # ### NEW ###: 按钮区域
 
 
-# --- 回调函数 (无需修改) ---
+# --- 回调函数 ---
 def perspective_callback(event, x, y, flags, param):
+    # (此函数无需修改)
     global display_frame, perspective_points
     if event == cv2.EVENT_LBUTTONDOWN and len(perspective_points) < 4:
         perspective_points.append([x, y])
@@ -59,6 +59,7 @@ def perspective_callback(event, x, y, flags, param):
 
 
 def irregular_roi_callback(event, x, y, flags, param):
+    # (此函数无需修改)
     global current_polygon_points, display_frame
     if event == cv2.EVENT_LBUTTONDOWN:
         current_polygon_points.append((x, y))
@@ -74,7 +75,19 @@ def irregular_roi_callback(event, x, y, flags, param):
         cv2.imshow("1. Select Irregular ROIs", display_frame)
 
 
-# --- 2 & 3. 视频加载与ROI选择 ---
+# ### NEW ###: 帧选择器的鼠标回调，用于处理按钮点击
+def frame_selector_callback(event, x, y, flags, param):
+    global start_frame_confirmed, button_rect
+    if event == cv2.EVENT_LBUTTONDOWN:
+        if (
+            button_rect
+            and button_rect[0] <= x <= button_rect[0] + button_rect[2]
+            and button_rect[1] <= y <= button_rect[1] + button_rect[3]
+        ):
+            start_frame_confirmed = True
+
+
+# --- 2. 视频加载与交互式设置 ---
 cap = cv2.VideoCapture(VIDEO_PATH)
 if not cap.isOpened():
     print(f"错误：无法打开视频文件 {VIDEO_PATH}")
@@ -84,21 +97,114 @@ fps = cap.get(cv2.CAP_PROP_FPS)
 fps = 30 if fps == 0 else fps
 total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-# ### MODIFIED ###: 跳转到指定的开始帧用于设置
-if START_FRAME >= total_frames:
-    print(f"错误：开始帧 ({START_FRAME}) 超出视频总帧数 ({total_frames})。")
-    cap.release()
-    exit()
+
+# --- 步骤 -1: 交互式选择开始帧 (带确认按钮) ---
+def on_trackbar(val):
+    pass
+
+
+SELECTOR_WINDOW_WIDTH = 1200
+original_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+original_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+aspect_ratio = original_height / original_width
+selector_window_height = int(SELECTOR_WINDOW_WIDTH * aspect_ratio)
+
+frame_selector_window = "Select Start Frame"
+cv2.namedWindow(frame_selector_window, cv2.WINDOW_NORMAL)
+cv2.resizeWindow(frame_selector_window, SELECTOR_WINDOW_WIDTH, selector_window_height)
+cv2.createTrackbar("Frame", frame_selector_window, 0, total_frames - 1, on_trackbar)
+cv2.setMouseCallback(
+    frame_selector_window, frame_selector_callback
+)  # ### NEW ###: 绑定新的鼠标回调
+
+print("--- 步骤 -1: 选择开始帧 ---")
+print("1. 拖动滑动条选择开始帧。")
+print("2. 点击右下角的 [Confirm] 按钮或按 'c'/'Enter' 键确认。")
+
+current_frame_pos = -1
+START_FRAME = 0
+while not start_frame_confirmed:  # ### MODIFIED ###: 循环直到按钮被点击
+    trackbar_pos = cv2.getTrackbarPos("Frame", frame_selector_window)
+    if trackbar_pos != current_frame_pos:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, trackbar_pos)
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        # ### NEW ###: 绘制按钮和信息
+        # 定义按钮位置和大小
+        button_w, button_h = 150, 50
+        button_x = frame.shape[1] - button_w - 20
+        button_y = frame.shape[0] - button_h - 20
+        button_rect = (button_x, button_y, button_w, button_h)
+
+        # 绘制按钮背景
+        cv2.rectangle(
+            frame,
+            (button_x, button_y),
+            (button_x + button_w, button_y + button_h),
+            (0, 200, 0),
+            -1,
+        )
+        cv2.rectangle(
+            frame,
+            (button_x, button_y),
+            (button_x + button_w, button_y + button_h),
+            (255, 255, 255),
+            2,
+        )
+
+        # 绘制按钮文字
+        text = "Confirm"
+        text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)[0]
+        text_x = button_x + (button_w - text_size[0]) // 2
+        text_y = button_y + (button_h + text_size[1]) // 2
+        cv2.putText(
+            frame,
+            text,
+            (text_x, text_y),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.8,
+            (255, 255, 255),
+            2,
+        )
+
+        # 绘制帧信息
+        info_text = f"Frame: {trackbar_pos} / {total_frames - 1}"
+        cv2.putText(
+            frame, info_text, (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2
+        )
+
+        cv2.imshow(frame_selector_window, frame)
+        current_frame_pos = trackbar_pos
+
+    key = cv2.waitKey(20) & 0xFF
+    # ### MODIFIED ###: 检查按键或按钮标志
+    if key in [ord("c"), 13]:
+        start_frame_confirmed = True  # 按键也触发确认
+
+    if start_frame_confirmed:
+        START_FRAME = current_frame_pos
+        break
+
+    if cv2.getWindowProperty(frame_selector_window, cv2.WND_PROP_VISIBLE) < 1:
+        print("帧选择窗口已关闭，程序退出。")
+        exit()
+
+cv2.destroyAllWindows()
+
+print(f"\n已选择第 {START_FRAME} 帧作为起点。")
+
+# (后续代码无需修改，为了完整性全部粘贴)
 
 cap.set(cv2.CAP_PROP_POS_FRAMES, START_FRAME)
-ret, setup_frame = cap.read()  # 使用 setup_frame 替代 first_frame
+ret, setup_frame = cap.read()
 if not ret:
     print(f"无法读取指定的开始帧 ({START_FRAME})")
     cap.release()
     exit()
-print(f"视频将从第 {START_FRAME} 帧开始进行设置和分析。")
 
-
+# --- 3. 透视校准与ROI选择 ---
 if ENABLE_PERSPECTIVE_CORRECTION:
     display_frame = setup_frame.copy()
     perspective_points = []
@@ -185,9 +291,7 @@ if not roi_polygons:
 print(f"已选择 {len(roi_polygons)} 个不规则ROI区域，开始处理...")
 
 # --- 4. 初始化和主循环 ---
-# ### MODIFIED ###: 将视频流重置到开始帧
 cap.set(cv2.CAP_PROP_POS_FRAMES, START_FRAME)
-
 raw_trajectory_data = []
 video_writer = None
 if SAVE_OUTPUT_VIDEO:
@@ -199,12 +303,11 @@ kernel_open = np.ones((5, 5), np.uint8)
 kernel_dilate = np.ones((10, 10), np.uint8)
 print(f"\n阶段 1/3: 正在从视频 '{base_filename}' 中采集和校正坐标...")
 
-# ### MODIFIED ###: 循环从 START_FRAME 开始
 for frame_num in tqdm(range(START_FRAME, total_frames), desc="追踪进度"):
     ret, frame = cap.read()
     if not ret:
         break
-    time_sec = frame_num / fps
+    time_sec = (frame_num - START_FRAME) / fps
 
     full_hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     full_color_mask = cv2.inRange(full_hsv_frame, lower_bound, upper_bound)
@@ -272,39 +375,22 @@ for frame_num in tqdm(range(START_FRAME, total_frames), desc="追踪进度"):
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
 
-# --- 5, 6, 7. 数据处理、输出与释放 (后续代码无需修改) ---
-print("\n阶段 2/3: 正在分析轨迹数据...")
-# ... (这部分代码无需改动，因为它处理的是已经采集好的 raw_trajectory_data)
-# ... (为了简洁，省略了这部分未改动的代码，请使用你原来的即可)
-
-# (将你原来的第5、6、7部分代码粘贴到这里)
 # --- 5, 6, 7. 数据处理、输出与释放 ---
 print("\n阶段 2/3: 正在分析轨迹数据...")
 detailed_data = []
 unit = "cm" if ENABLE_PERSPECTIVE_CORRECTION else "pixels"
+header_base = ["frame", "time_sec", "roi_id", "x_pixel", "y_pixel"]
 if ENABLE_PERSPECTIVE_CORRECTION:
-    header = [
-        "frame",
-        "time_sec",
-        "roi_id",
-        "x_pixel",
-        "y_pixel",
+    header = header_base + [
         "x_cm",
         "y_cm",
         f"distance_{unit}",
         f"cumulative_distance_{unit}",
     ]
 else:
-    header = [
-        "frame",
-        "time_sec",
-        "roi_id",
-        "x_pixel",
-        "y_pixel",
-        f"distance_{unit}",
-        f"cumulative_distance_{unit}",
-    ]
+    header = header_base + [f"distance_{unit}", f"cumulative_distance_{unit}"]
 detailed_data.append(header)
+
 total_distances = {i + 1: 0.0 for i in range(len(roi_polygons))}
 last_coords = {i + 1: (np.nan, np.nan) for i in range(len(roi_polygons))}
 for frame, time_sec, roi_id, x_pixel, y_pixel, x_corr, y_corr in tqdm(
@@ -331,7 +417,6 @@ for frame, time_sec, roi_id, x_pixel, y_pixel, x_corr, y_corr in tqdm(
         row_data.extend([x_corr, y_corr])
     row_data.extend([distance_this_frame, total_distances[roi_id]])
     detailed_data.append(row_data)
-
     last_coords[roi_id] = (current_x, current_y)
 
 print("\n阶段 3/3: 正在生成报告和图像...")
@@ -348,10 +433,10 @@ for roi_id in range(1, len(roi_polygons) + 1):
     if not roi_data:
         continue
 
-    if ENABLE_PERSPECTIVE_CORRECTION:
-        x_coords, y_coords = [r[5] for r in roi_data], [r[6] for r in roi_data]
-    else:
-        x_coords, y_coords = [r[3] for r in roi_data], [r[4] for r in roi_data]
+    x_col_idx = 5 if ENABLE_PERSPECTIVE_CORRECTION else 3
+    y_col_idx = 6 if ENABLE_PERSPECTIVE_CORRECTION else 4
+    x_coords = [r[x_col_idx] for r in roi_data]
+    y_coords = [r[y_col_idx] for r in roi_data]
     ax.plot(
         x_coords, y_coords, color=cmap(roi_id - 1), label=f"ROI {roi_id}", alpha=0.8
     )
@@ -398,9 +483,12 @@ for roi_id_to_summarize in range(1, len(roi_polygons) + 1):
             target_second += 1
         last_dist = cum_dist
 
-    final_time = int(roi_data[-1][1])
-    if final_time >= target_second:
-        summary_report.append([final_time, last_dist])
+    if roi_data:
+        final_time = int(roi_data[-1][1])
+        # Fill any remaining seconds up to the final time
+        while target_second <= final_time:
+            summary_report.append([target_second, last_dist])
+            target_second += 1
 
     summary_filename = os.path.join(
         OUTPUT_FOLDER, f"summary_roi_{roi_id_to_summarize}.csv"

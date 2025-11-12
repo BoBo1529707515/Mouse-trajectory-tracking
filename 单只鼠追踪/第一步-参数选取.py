@@ -73,7 +73,7 @@ def on_trackbar_change(val):
 # --- 主程序流程 ---
 
 # 1. 读取视频
-VIDEO_PATH = r"C:\Users\15297\Desktop\b1d914e513f5dc3f0fafd2824ea55ac3.mp4"
+VIDEO_PATH = r"C:\Users\15297\Desktop\WeChat_20251109195318.mp4"
 cap = cv2.VideoCapture(VIDEO_PATH)
 ret, frame = cap.read()
 if not ret:
