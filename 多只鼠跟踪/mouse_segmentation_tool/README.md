@@ -71,11 +71,26 @@ nvidia-smi
 
 | CUDA版本 | PyTorch版本 | 安装命令 |
 |---------|------------|--------|
+| CUDA 12.9 | PyTorch 2.3.1 | `pip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu121` |
+| CUDA 12.8 | PyTorch 2.3.1 | `pip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu121` |
+| CUDA 12.7 | PyTorch 2.3.1 | `pip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu121` |
+| CUDA 12.6 | PyTorch 2.3.1 | `pip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu121` |
+| CUDA 12.5 | PyTorch 2.3.1 | `pip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu121` |
+| CUDA 12.4 | PyTorch 2.3.1 | `pip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu121` |
+| CUDA 12.3 | PyTorch 2.3.1 | `pip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu121` |
+| CUDA 12.2 | PyTorch 2.3.1 | `pip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu121` |
+| CUDA 12.1 | PyTorch 2.3.1 | `pip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu121` |
+| CUDA 11.8 | PyTorch 2.0.1 | `pip install torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 --index-url https://download.pytorch.org/whl/cu117` |
 | CUDA 11.7 | PyTorch 2.0.1 | `pip install torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 --index-url https://download.pytorch.org/whl/cu117` |
 | CUDA 11.6 | PyTorch 1.13.1 | `pip install torch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cu116` |
+| CUDA 11.5 | PyTorch 1.13.1 | `pip install torch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cu116` |
+| CUDA 11.4 | PyTorch 1.12.1 | `pip install torch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 --index-url https://download.pytorch.org/whl/cu113` |
 | CUDA 11.3 | PyTorch 1.12.1 | `pip install torch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 --index-url https://download.pytorch.org/whl/cu113` |
+| CUDA 11.2 | PyTorch 1.10.1 | `pip install torch==1.10.1 torchvision==0.11.2 torchaudio==0.10.1 --index-url https://download.pytorch.org/whl/cu113` |
 | CUDA 10.2 | PyTorch 1.10.1 | `pip install torch==1.10.1 torchvision==0.11.2 torchaudio==0.10.1 --index-url https://download.pytorch.org/whl/cu102` |
-| 无CUDA/CPU | PyTorch 2.0.1 | `pip install torch==2.0.1 torchvision==0.15.2 torchaudio==0.15.2 --index-url https://download.pytorch.org/whl/cpu` |
+| CUDA 10.1 | PyTorch 1.7.1 | `pip install torch==1.7.1 torchvision==0.8.2 torchaudio==0.7.2 --index-url https://download.pytorch.org/whl/cu101` |
+| CUDA 10.0 | PyTorch 1.7.1 | `pip install torch==1.7.1 torchvision==0.8.2 torchaudio==0.7.2 --index-url https://download.pytorch.org/whl/cu100` |
+| 无CUDA/CPU | PyTorch 2.3.1 | `pip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cpu` |
 
 #### 步骤3：安装OpenMIM
 

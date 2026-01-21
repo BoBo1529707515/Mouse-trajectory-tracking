@@ -29,24 +29,30 @@ if "%choice%"=="0" (
     echo 步骤1: 检查CUDA版本...
     nvidia-smi
     echo 请根据上述输出中的CUDA版本选择合适的PyTorch版本
-    echo 1. CUDA 11.7 (推荐)
-    echo 2. CUDA 11.6
-    echo 3. CUDA 11.3
-    echo 4. CUDA 10.2
-    echo 5. 仅CPU版本
+    echo 1. CUDA 12.x (12.0-12.9)
+    echo 2. CUDA 11.8 / 11.7
+    echo 3. CUDA 11.6 / 11.5
+    echo 4. CUDA 11.4 / 11.3 / 11.2
+    echo 5. CUDA 10.2
+    echo 6. CUDA 10.1 / 10.0
+    echo 7. 仅CPU版本
     set /p cuda_choice=
     
     echo 步骤2: 安装PyTorch...
     if "%cuda_choice%"=="1" (
-        pip install torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 --index-url https://download.pytorch.org/whl/cu117
+        pip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu121
     ) else if "%cuda_choice%"=="2" (
-        pip install torch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cu116
+        pip install torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 --index-url https://download.pytorch.org/whl/cu117
     ) else if "%cuda_choice%"=="3" (
-        pip install torch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 --index-url https://download.pytorch.org/whl/cu113
+        pip install torch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cu116
     ) else if "%cuda_choice%"=="4" (
+        pip install torch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 --index-url https://download.pytorch.org/whl/cu113
+    ) else if "%cuda_choice%"=="5" (
         pip install torch==1.10.1 torchvision==0.11.2 torchaudio==0.10.1 --index-url https://download.pytorch.org/whl/cu102
+    ) else if "%cuda_choice%"=="6" (
+        pip install torch==1.7.1 torchvision==0.8.2 torchaudio==0.7.2 --index-url https://download.pytorch.org/whl/cu101
     ) else (
-        pip install torch==2.0.1 torchvision==0.15.2 torchaudio==0.15.2 --index-url https://download.pytorch.org/whl/cpu
+        pip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cpu
     )
     
     echo 步骤3: 安装OpenMIM...

@@ -32,19 +32,62 @@ if option == "主页":
         import mmcv
         import torch
         st.success("✅ 所有依赖已正确安装")
+        
+        # CUDA版本检查
+        st.subheader("CUDA版本检查")
+        try:
+            cuda_version = torch.version.cuda
+            if cuda_version:
+                st.success(f"当前CUDA版本: {cuda_version}")
+                
+                # 根据CUDA版本推荐PyTorch版本
+                if cuda_version.startswith('12.'):
+                    st.info("推荐PyTorch版本: 2.3.1")
+                    st.code("pip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu121")
+                elif cuda_version.startswith('11.8') or cuda_version.startswith('11.7'):
+                    st.info("推荐PyTorch版本: 2.0.1")
+                    st.code("pip install torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 --index-url https://download.pytorch.org/whl/cu117")
+                elif cuda_version.startswith('11.6') or cuda_version.startswith('11.5'):
+                    st.info("推荐PyTorch版本: 1.13.1")
+                    st.code("pip install torch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cu116")
+                elif cuda_version.startswith('11.4') or cuda_version.startswith('11.3') or cuda_version.startswith('11.2'):
+                    st.info("推荐PyTorch版本: 1.12.1")
+                    st.code("pip install torch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 --index-url https://download.pytorch.org/whl/cu113")
+                elif cuda_version.startswith('10.2'):
+                    st.info("推荐PyTorch版本: 1.10.1")
+                    st.code("pip install torch==1.10.1 torchvision==0.11.2 torchaudio==0.10.1 --index-url https://download.pytorch.org/whl/cu102")
+                elif cuda_version.startswith('10.1') or cuda_version.startswith('10.0'):
+                    st.info("推荐PyTorch版本: 1.7.1")
+                    st.code("pip install torch==1.7.1 torchvision==0.8.2 torchaudio==0.7.2 --index-url https://download.pytorch.org/whl/cu101")
+                else:
+                    st.info("推荐PyTorch版本: 2.3.1 (CUDA 12.1)")
+                    st.code("pip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu121")
+            else:
+                st.warning("未检测到CUDA，将使用CPU版本")
+                st.code("pip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cpu")
+        except:
+            st.warning("无法检测CUDA版本")
     except ImportError as e:
         st.error("❌ 缺少依赖，请按照以下步骤安装：")
         with st.expander("查看安装步骤"):
-            st.write("### 步骤1：安装PyTorch")
-            st.code("# 带CUDA支持（推荐，需要GPU）\npip install torch torchvision torchaudio\n\n# 仅CPU版本（无GPU时使用）\npip install torch --index-url https://download.pytorch.org/whl/cpu")
+            st.write("### 推荐：使用Conda创建新环境")
+            st.code("# 切换到 D 盘\nD:\n\n# 进入目标目录\ncd D:\\Projects\n\n# 克隆仓库\ngit clone https://github.com/BoBo1529707515/Mouse-trajectory-tracking.git\n\n# 进入分割工具目录\ncd Mouse-trajectory-tracking\\多只鼠跟踪\\mouse_segmentation_tool\n\n# 创建并激活新的conda环境\nconda create -n mouse_seg python=3.8 -y\nconda activate mouse_seg")
             
-            st.write("### 步骤2：安装OpenMIM")
+            st.write("### 步骤1：检查CUDA版本")
+            st.code("nvidia-smi")
+            st.write("查看输出中的 \"CUDA Version\" 字段")
+            
+            st.write("### 步骤2：安装对应版本的PyTorch")
+            st.write("根据CUDA版本选择合适的命令：")
+            st.code("# CUDA 12.0-12.9\npip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu121\n\n# CUDA 11.8 / 11.7\npip install torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 --index-url https://download.pytorch.org/whl/cu117\n\n# CUDA 11.6 / 11.5\npip install torch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cu116\n\n# CUDA 11.4 / 11.3 / 11.2\npip install torch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 --index-url https://download.pytorch.org/whl/cu113\n\n# CUDA 10.2\npip install torch==1.10.1 torchvision==0.11.2 torchaudio==0.10.1 --index-url https://download.pytorch.org/whl/cu102\n\n# CUDA 10.1 / 10.0\npip install torch==1.7.1 torchvision==0.8.2 torchaudio==0.7.2 --index-url https://download.pytorch.org/whl/cu101\n\n# 仅CPU版本\npip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cpu")
+            
+            st.write("### 步骤3：安装OpenMIM")
             st.code("pip install -U openmim")
             
-            st.write("### 步骤3：安装MM系列库")
+            st.write("### 步骤4：安装MM系列库")
             st.code("# 安装MMCV\nmim install mmcv-full==2.1.0\n\n# 安装MMSegmentation\nmim install mmsegmentation==1.3.0")
             
-            st.write("### 步骤4：安装其他依赖")
+            st.write("### 步骤5：安装其他依赖")
             st.code("pip install -r requirements.txt")
     
     st.subheader("功能特点")
