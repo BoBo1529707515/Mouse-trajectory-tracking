@@ -17,6 +17,10 @@
 ### 1. 克隆仓库
 
 ```bash
+# 切换到 D 盘
+D:
+# 进入目标目录
+cd D:\Projects
 git clone https://github.com/BoBo1529707515/Mouse-trajectory-tracking.git
 cd Mouse-trajectory-tracking
 cd "多只鼠跟踪"
