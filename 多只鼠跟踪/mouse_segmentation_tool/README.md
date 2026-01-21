@@ -17,7 +17,9 @@
 ### 1. 克隆仓库
 
 ```bash
-git clone <repository_url>
+git clone https://github.com/BoBo1529707515/Mouse-trajectory-tracking.git
+cd Mouse-trajectory-tracking
+cd "多只鼠跟踪"
 cd mouse_segmentation_tool
 ```
 
