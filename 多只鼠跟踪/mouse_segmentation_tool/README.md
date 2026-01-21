@@ -1,6 +1,6 @@
-# 鼠标分割工具
+# 小鼠边缘分割工具
 
-基于MMSegmentation的鼠标分割任务工具，支持从视频帧提取、标注转换到模型训练和推理的完整流程。
+基于MMSegmentation的分割任务工具，支持从视频帧提取、标注转换到模型训练和推理的完整流程。
 
 ## 功能特点
 
@@ -17,7 +17,13 @@
 ### 1. 克隆仓库
 
 ```bash
-git clone <repository_url>
+# 切换到 D 盘
+D:
+# 进入目标目录
+cd D:\Projects
+git clone https://github.com/BoBo1529707515/Mouse-trajectory-tracking.git
+cd Mouse-trajectory-tracking
+cd "多只鼠跟踪"
 cd mouse_segmentation_tool
 ```
 
