@@ -26,12 +26,33 @@ if option == "主页":
     st.header("欢迎使用鼠标分割工具")
     st.write("这是一个基于MMSegmentation的鼠标分割任务工具，支持从视频帧提取、标注转换到模型训练和推理的完整流程。")
     
+    # 依赖检查
+    try:
+        import mmsegmentation
+        import mmcv
+        import torch
+        st.success("✅ 所有依赖已正确安装")
+    except ImportError as e:
+        st.error("❌ 缺少依赖，请按照以下步骤安装：")
+        with st.expander("查看安装步骤"):
+            st.write("### 步骤1：安装PyTorch")
+            st.code("# 带CUDA支持（推荐，需要GPU）\npip install torch torchvision torchaudio\n\n# 仅CPU版本（无GPU时使用）\npip install torch --index-url https://download.pytorch.org/whl/cpu")
+            
+            st.write("### 步骤2：安装OpenMIM")
+            st.code("pip install -U openmim")
+            
+            st.write("### 步骤3：安装MM系列库")
+            st.code("# 安装MMCV\nmim install mmcv-full==2.1.0\n\n# 安装MMSegmentation\nmim install mmsegmentation==1.3.0")
+            
+            st.write("### 步骤4：安装其他依赖")
+            st.code("pip install -r requirements.txt")
+    
     st.subheader("功能特点")
     features = [
         "📹 视频帧提取：从视频中提取帧作为训练数据",
         "🖼️ 标注转换：将LabelMe标注转换为掩码图像",
         "✅ 标注检查：验证标注数据质量",
-        "🏋️ 模型训练：训练鼠标分割模型",
+        "🏋️ 模型训练：训练鼠标分割模型（支持U-Net和SegFormer）",
         "🎯 图像推理：对单张图像进行分割",
         "📽️ 视频分割：对视频进行分割处理",
         "📊 视频分析：分析小鼠交互行为"

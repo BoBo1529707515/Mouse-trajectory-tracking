@@ -23,6 +23,38 @@ cd mouse_segmentation_tool
 
 ### 2. 安装依赖
 
+由于项目依赖PyTorch和MM系列库，需要按照特定顺序安装：
+
+#### 步骤1：安装PyTorch
+
+根据你的CUDA环境选择合适的版本：
+
+```bash
+# 带CUDA支持（推荐，需要GPU）
+pip install torch torchvision torchaudio
+
+# 仅CPU版本（无GPU时使用）
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+```
+
+#### 步骤2：安装OpenMIM
+
+```bash
+pip install -U openmim
+```
+
+#### 步骤3：安装MM系列库
+
+```bash
+# 安装MMCV
+mim install mmcv-full==2.1.0
+
+# 安装MMSegmentation
+mim install mmsegmentation==1.3.0
+```
+
+#### 步骤4：安装其他依赖
+
 ```bash
 pip install -r requirements.txt
 ```

@@ -1,6 +1,7 @@
 @echo off
 cls
 echo ================= 鼠标分割工具 =================
+echo 0. 安装依赖
 echo 1. 提取视频帧
 echo 2. 转换标注
 echo 3. 检查标注
@@ -8,11 +9,31 @@ echo 4. 训练模型
 echo 5. 图像推理
 echo 6. 视频分割
 echo 7. 视频分析
-echo 0. 退出
+echo 8. 退出
 echo ===============================================
 set /p choice=请选择要执行的功能（输入数字）: 
 
-if "%choice%"=="1" (
+if "%choice%"=="0" (
+    echo =============== 安装依赖 ===============
+    echo 步骤1: 安装PyTorch...
+    pip install torch torchvision torchaudio
+    
+    echo 步骤2: 安装OpenMIM...
+    pip install -U openmim
+    
+    echo 步骤3: 安装MMCV...
+    mim install mmcv-full==2.1.0
+    
+    echo 步骤4: 安装MMSegmentation...
+    mim install mmsegmentation==1.3.0
+    
+    echo 步骤5: 安装其他依赖...
+    pip install -r requirements.txt
+    
+    echo 依赖安装完成！
+    pause
+    %0
+) else if "%choice%"=="1" (
     echo 请输入视频文件路径（多个视频用空格分隔）:
     set /p videos=
     echo 请输入输出目录（默认: mouse_dataset/images）:
@@ -69,7 +90,7 @@ if "%choice%"=="1" (
     set /p output_video=
     if "%output_video%"=="" set output_video=analyzed_video.avi
     python main.py analyze-video --video %video% --checkpoint %checkpoint% --output-video %output_video%
-) else if "%choice%"=="0" (
+) else if "%choice%"=="8" (
     exit
 ) else (
     echo 输入无效，请重新选择。
