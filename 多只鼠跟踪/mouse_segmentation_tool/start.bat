@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 cls
 echo ================= 鼠标分割工具 =================
 echo 0. 安装依赖
@@ -30,7 +31,7 @@ if "%choice%"=="0" (
     echo 步骤1: 检查CUDA版本...
     nvidia-smi
     echo 请根据上述输出中的CUDA版本选择合适的PyTorch版本
-    echo 1. CUDA 12.x (12.0-12.9)
+    echo 1. CUDA 12.9 / 12.8 / 12.7 / 12.6 / 12.5 / 12.4 / 12.3 / 12.2 / 12.1 / 12.0
     echo 2. CUDA 11.8 / 11.7
     echo 3. CUDA 11.6 / 11.5
     echo 4. CUDA 11.4 / 11.3 / 11.2
@@ -70,7 +71,7 @@ if "%choice%"=="0" (
     
     echo 依赖安装完成！
     pause
-    %0
+    goto :menu
 ) else if "%choice%"=="1" (
     echo 请输入视频文件路径（多个视频用空格分隔）:
     set /p videos=
@@ -136,6 +137,23 @@ if "%choice%"=="0" (
 ) else (
     echo 输入无效，请重新选择。
     pause
-    %0
+    goto :menu
 )
+
+:menu
 pause
+cls
+echo ================= 鼠标分割工具 =================
+echo 0. 安装依赖
+echo 1. 提取视频帧
+echo 2. 转换标注
+echo 3. 检查标注
+echo 4. 训练模型
+echo 5. 图像推理
+echo 6. 视频分割
+echo 7. 视频分析
+echo 8. 启动Web界面
+echo 9. 退出
+echo ===============================================
+set /p choice=请选择要执行的功能（输入数字）: 
+goto :EOF
