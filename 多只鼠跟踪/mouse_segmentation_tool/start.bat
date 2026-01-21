@@ -15,19 +15,50 @@ set /p choice=请选择要执行的功能（输入数字）:
 
 if "%choice%"=="0" (
     echo =============== 安装依赖 ===============
-    echo 步骤1: 安装PyTorch...
-    pip install torch torchvision torchaudio
+    echo 1. 创建并激活Conda环境
+    echo 2. 直接安装依赖（已有环境）
+    set /p install_choice=
     
-    echo 步骤2: 安装OpenMIM...
+    if "%install_choice%"=="1" (
+        echo 正在创建Conda环境...
+        conda create -n mouse_seg python=3.8 -y
+        echo 正在激活Conda环境...
+        conda activate mouse_seg
+    )
+    
+    echo 步骤1: 检查CUDA版本...
+    nvidia-smi
+    echo 请根据上述输出中的CUDA版本选择合适的PyTorch版本
+    echo 1. CUDA 11.7 (推荐)
+    echo 2. CUDA 11.6
+    echo 3. CUDA 11.3
+    echo 4. CUDA 10.2
+    echo 5. 仅CPU版本
+    set /p cuda_choice=
+    
+    echo 步骤2: 安装PyTorch...
+    if "%cuda_choice%"=="1" (
+        pip install torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 --index-url https://download.pytorch.org/whl/cu117
+    ) else if "%cuda_choice%"=="2" (
+        pip install torch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cu116
+    ) else if "%cuda_choice%"=="3" (
+        pip install torch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 --index-url https://download.pytorch.org/whl/cu113
+    ) else if "%cuda_choice%"=="4" (
+        pip install torch==1.10.1 torchvision==0.11.2 torchaudio==0.10.1 --index-url https://download.pytorch.org/whl/cu102
+    ) else (
+        pip install torch==2.0.1 torchvision==0.15.2 torchaudio==0.15.2 --index-url https://download.pytorch.org/whl/cpu
+    )
+    
+    echo 步骤3: 安装OpenMIM...
     pip install -U openmim
     
-    echo 步骤3: 安装MMCV...
+    echo 步骤4: 安装MMCV...
     mim install mmcv-full==2.1.0
     
-    echo 步骤4: 安装MMSegmentation...
+    echo 步骤5: 安装MMSegmentation...
     mim install mmsegmentation==1.3.0
     
-    echo 步骤5: 安装其他依赖...
+    echo 步骤6: 安装其他依赖...
     pip install -r requirements.txt
     
     echo 依赖安装完成！

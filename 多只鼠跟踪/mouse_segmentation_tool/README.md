@@ -16,34 +16,74 @@
 
 ### 1. 克隆仓库
 
+#### 推荐路径（D盘）
+
 ```bash
-git clone <repository_url>
-cd mouse_segmentation_tool
+# 切换到 D 盘
+D:
+
+# 进入目标目录
+cd D:\Projects
+
+# 克隆仓库
+git clone https://github.com/BoBo1529707515/Mouse-trajectory-tracking.git
+
+# 进入分割工具目录
+cd Mouse-trajectory-tracking\多只鼠跟踪\mouse_segmentation_tool
 ```
+
+#### 其他路径
+
+如果需要安装到其他位置，只需修改对应的目录路径即可。
 
 ### 2. 安装依赖
 
-由于项目依赖PyTorch和MM系列库，需要按照特定顺序安装：
-
-#### 步骤1：安装PyTorch
-
-根据你的CUDA环境选择合适的版本：
+#### 推荐：使用Conda创建新环境
 
 ```bash
-# 带CUDA支持（推荐，需要GPU）
-pip install torch torchvision torchaudio
+# 切换到 D 盘
+D:
 
-# 仅CPU版本（无GPU时使用）
-pip install torch --index-url https://download.pytorch.org/whl/cpu
+# 进入目标目录
+cd D:\Projects
+
+# 克隆仓库
+git clone https://github.com/BoBo1529707515/Mouse-trajectory-tracking.git
+
+# 进入分割工具目录
+cd Mouse-trajectory-tracking\多只鼠跟踪\mouse_segmentation_tool
+
+# 创建并激活新的conda环境
+conda create -n mouse_seg python=3.8 -y
+conda activate mouse_seg
 ```
 
-#### 步骤2：安装OpenMIM
+#### 步骤1：检查CUDA版本
+
+```bash
+nvidia-smi
+```
+查看输出中的 "CUDA Version" 字段。
+
+#### 步骤2：安装对应版本的PyTorch
+
+根据CUDA版本选择合适的命令：
+
+| CUDA版本 | PyTorch版本 | 安装命令 |
+|---------|------------|--------|
+| CUDA 11.7 | PyTorch 2.0.1 | `pip install torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 --index-url https://download.pytorch.org/whl/cu117` |
+| CUDA 11.6 | PyTorch 1.13.1 | `pip install torch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 --index-url https://download.pytorch.org/whl/cu116` |
+| CUDA 11.3 | PyTorch 1.12.1 | `pip install torch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 --index-url https://download.pytorch.org/whl/cu113` |
+| CUDA 10.2 | PyTorch 1.10.1 | `pip install torch==1.10.1 torchvision==0.11.2 torchaudio==0.10.1 --index-url https://download.pytorch.org/whl/cu102` |
+| 无CUDA/CPU | PyTorch 2.0.1 | `pip install torch==2.0.1 torchvision==0.15.2 torchaudio==0.15.2 --index-url https://download.pytorch.org/whl/cpu` |
+
+#### 步骤3：安装OpenMIM
 
 ```bash
 pip install -U openmim
 ```
 
-#### 步骤3：安装MM系列库
+#### 步骤4：安装MM系列库
 
 ```bash
 # 安装MMCV
@@ -53,7 +93,7 @@ mim install mmcv-full==2.1.0
 mim install mmsegmentation==1.3.0
 ```
 
-#### 步骤4：安装其他依赖
+#### 步骤5：安装其他依赖
 
 ```bash
 pip install -r requirements.txt
