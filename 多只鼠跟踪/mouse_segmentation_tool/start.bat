@@ -9,7 +9,8 @@ echo 4. 训练模型
 echo 5. 图像推理
 echo 6. 视频分割
 echo 7. 视频分析
-echo 8. 退出
+echo 8. 启动Web界面
+echo 9. 退出
 echo ===============================================
 set /p choice=请选择要执行的功能（输入数字）: 
 
@@ -128,6 +129,9 @@ if "%choice%"=="0" (
     if "%output_video%"=="" set output_video=analyzed_video.avi
     python main.py analyze-video --video %video% --checkpoint %checkpoint% --output-video %output_video%
 ) else if "%choice%"=="8" (
+    echo 正在启动Web界面...
+    streamlit run app.py
+) else if "%choice%"=="9" (
     exit
 ) else (
     echo 输入无效，请重新选择。
